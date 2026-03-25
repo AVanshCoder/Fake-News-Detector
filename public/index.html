@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<link rel="stylesheet" href="styles.css">
+<head>
+    <meta charset="UTF-8">
+    <title>Fake News Detector</title>
+</head>
+<body style="font-family: Arial; padding: 40px; background: #111; color: white;">
+
+    <h1>🧠 Fake News Detector</h1>
+
+    <textarea id="news-text" rows="5" cols="60"
+        placeholder="Enter news or claim..."></textarea>
+
+    <br><br>
+
+    <button onclick="detectFakeNews()">Analyze</button>
+
+    <div id="result" style="margin-top: 20px;"></div>
+
+    <h3>🕒 Recent Searches</h3>
+    <ul id="recent-searches"></ul>
+
+    <script>
+        async function detectFakeNews() {
+            const text = document.getElementById("news-text").value;
+            addSearch(text);
+
+            const res = await fetch("/analyze", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ text })
+            });
+
+            const data = await res.json();
+
+            const verdict = data.analysis.verdict;
+            const confidence = data.analysis.confidence;
+            const reason = data.analysis.reason;
+
+            document.getElementById("result").innerHTML = `
+                <h2>${verdict === "false" ? "❌ Fake" : "✅ Credible"}</h2>
+                <p><b>Confidence:</b> ${(confidence * 100).toFixed(1)}%</p>
+                <p><b>Reason:</b> ${reason}</p>
+
+                <h3>Sources:</h3>
+                <ul>
+                    ${data.searchResults.map(r =>
+                        `<li><a href="${r.link}" target="_blank">${r.title}</a></li>`
+                    ).join("")}
+                </ul>
+            `;
+        }
+
+        const STORAGE_KEY = "recent_searches";
+
+function getRecentSearches() {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+}
+
+function saveRecentSearches(list) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+}
+
+function addSearch(query) {
+    let searches = getRecentSearches();
+
+    // Remove duplicate if exists
+    searches = searches.filter(item => item !== query);
+
+    // Add new search at top
+    searches.unshift(query);
+
+    // Keep only last 10
+    if (searches.length > 10) {
+        searches = searches.slice(0, 10);
+    }
+
+    saveRecentSearches(searches);
+    renderRecentSearches();
+}
+
+function renderRecentSearches() {
+    const container = document.getElementById("recent-searches");
+    const searches = getRecentSearches();
+
+    if (searches.length === 0) {
+        container.innerHTML = "<li>No recent searches</li>";
+        return;
+    }
+
+    container.innerHTML = searches.map(search => `
+        <li style="cursor:pointer; margin:5px 0;"
+            onclick="useSearch('${search}')">
+            🔍 ${search}
+        </li>
+    `).join("");
+}
+
+function useSearch(text) {
+    document.getElementById("news-text").value = text;
+}
+
+window.onload = () => {
+    renderRecentSearches();
+};
+    </script>
+
+</body>
+</html>
